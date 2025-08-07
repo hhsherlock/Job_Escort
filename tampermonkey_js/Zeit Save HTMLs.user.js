@@ -1,0 +1,77 @@
+// ==UserScript==
+// @name         Zeit Save HTMLs
+// @namespace    http://tampermonkey.net/
+// @description  save htmls
+// @version      2025-07-29
+// @author       Parzi & ChatGPT
+// @match        https://jobs.zeit.de/stellenanzeigen?q=*
+// @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
+// @grant        none
+// ==/UserScript==
+
+
+(function () {
+    'use strict';
+
+    const keywordFromURL = (() => {
+        const match = location.href.match(/[?&]q=([^&]+)/);
+        return match ? decodeURIComponent(match[1]) : 'unknown';
+    })();
+
+    const safeKeyword = keywordFromURL.replace(/\s+/g, '_').replace(/[^\w\-]/g, '');
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+
+    function saveHTML(filename, content) {
+        const blob = new Blob([content], { type: 'text/html' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        link.click();
+    }
+
+    async function saveAllPages() {
+        let pageNum;
+
+        while (true) {
+            const pageParamMatch = location.href.match(/[?&]page=(\d+)/);
+            if (pageParamMatch) {
+                pageNum = parseInt(pageParamMatch[1]);
+            } else {
+                pageNum = 1;
+            }
+            console.log(`💾 Saving page ${pageNum} for "${safeKeyword}"`);
+
+            await delay(2000); // buffer after load
+
+            const htmlContent = document.documentElement.outerHTML;
+            const filename = `zeit_${safeKeyword}_page${pageNum}.html`;
+            saveHTML(filename, htmlContent);
+
+
+            // Find the "Next" button by text content
+            const nextPageBtn = document.getElementById('job-teasers-next-page');
+
+            if (nextPageBtn && nextPageBtn.hasAttribute('href')){
+                await delay(2000);
+                nextPageBtn.click();
+            } else {
+                console.log('✅ No more pages.');
+                break;
+            }
+
+
+        }
+
+        alert(`✅ Finished saving all pages for keyword "${safeKeyword}"`);
+        window.location.href = `https://jobs.zeit.de/`;
+    }
+
+
+    // Kick off
+    saveAllPages();
+})();
+
